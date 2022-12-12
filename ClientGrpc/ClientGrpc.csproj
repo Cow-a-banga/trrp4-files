@@ -7,9 +7,23 @@
         <Nullable>enable</Nullable>
         <RootNamespace>Client</RootNamespace>
     </PropertyGroup>
+	
+	<ItemGroup>
+    <Protobuf Include="Protos\RFM.proto" GrpcServices="Client" />
+	</ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\FileSystemWatcher\FileSystemWatcher.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Google.Protobuf" Version="3.21.11" />
+      <PackageReference Include="Grpc.Net.Client" Version="2.50.0" />
+      <PackageReference Include="Grpc.Tools" Version="2.51.0">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
     </ItemGroup>
 
 </Project>
