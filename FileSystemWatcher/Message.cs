@@ -2,6 +2,7 @@
 
 public enum MsgType
 {
+    CreateDisk = 1,
     CreateDirectory,
     DeleteDirectory,
     RenameDirectory,
@@ -22,6 +23,7 @@ public class Message
     {
         Path = path;
         Type = type;
+        File = Array.Empty<byte>();
     }
     
     public Message(string path, string newPath, long type)
@@ -29,6 +31,7 @@ public class Message
         Path = path;
         NewPath = newPath;
         Type = type;
+        File = Array.Empty<byte>();
     }
     
     public Message(string path, long type, byte[] file)

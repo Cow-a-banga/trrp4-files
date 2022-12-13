@@ -38,6 +38,7 @@ namespace FileSystemWork
             }
 
             byte[] buffer;
+            Thread.Sleep(300);
             using (FileStream fs = File.OpenRead(e.FullPath))
             {
                 buffer = new byte[fs.Length];
@@ -53,6 +54,7 @@ namespace FileSystemWork
             if (!Directory.Exists(e.FullPath))
             {
                 byte[] buffer;
+                Thread.Sleep(300);
                 using (FileStream fs = File.OpenRead(e.FullPath))
                 {
                     buffer = new byte[fs.Length];
