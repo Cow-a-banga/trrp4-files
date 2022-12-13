@@ -1,2 +1,0 @@
-obj\Debug\net7.0\Protos/RFM.cs \
-obj\Debug\net7.0\Protos/RFMGrpc.cs: Protos/RFM.proto
