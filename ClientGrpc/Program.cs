@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Configuration;
 using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
 using FileSystemWork;
 using Google.Protobuf;
 using Grpc.Net.Client;
@@ -13,7 +12,9 @@ namespace Client
     public static class Program
     {
         private static int BUFSIZE = 41943040;
-        private static string _path = @"C:\MySyncDir";
+        private static Dictionary<string, string> syncedDirs = new();
+        private static string _diskName = "TrrpDisk";
+        private static string _defalutPath = @"C:\MySyncDir\TrrpDisk";
         private static RemoteFolderManager.RemoteFolderManagerClient client;
 
         private static async void SendMessage(Message message)
@@ -72,42 +73,71 @@ namespace Client
             return !regex.IsMatch(path);
         }
     
-        public static async Task Main(string[] args)
+        public static async Task Main()
         {
             using var channel = GrpcChannel.ForAddress(ConfigurationManager.AppSettings.Get("Address"));
             client = new RemoteFolderManager.RemoteFolderManagerClient(channel);
-            
-            /*if (args.Length == 0)
-            {
-                Console.WriteLine("В качестве аргумента необходимо передать путь до папки, которую необходимо синхронизовать");
-                Directory.CreateDirectory(_path);
-                
-                using var sendCall = client.actionF();
-            
-                await sendCall.RequestStream.WriteAsync(new Msg {Id = 0, Type = (int) MsgType.CreateDisk});
 
-                await sendCall.RequestStream.CompleteAsync();
-                var response = await sendCall;
-                Console.WriteLine($"Ответ сервера: {response.Code}");
-            }*/
-            if (!Directory.Exists(_path))
+            string userDiskPath = _defalutPath;
+            if (!String.IsNullOrEmpty(ConfigurationManager.AppSettings.Get("PathToDisk")))
             {
-                //_path = IsValidFilePath(args[0]) ? args[0] : _path;
-                Directory.CreateDirectory(_path);
-                using var sendCall = client.actionF();
-            
-                await sendCall.RequestStream.WriteAsync(new Msg {Id = "0", Type = (int) MsgType.CreateDisk});
-
-                await sendCall.RequestStream.CompleteAsync();
-                var response = await sendCall;
-                Console.WriteLine($"Ответ сервера: {response.Code}");
+                //var json = JsonConvert.SerializeObject(obj, Formatting.Indented);
+                //File.WriteAllText(@"D:\myJson.json", json);
             }
-            
-            var fsWorker = new FileSystemWorker(_path);
+            else
+            {
+                Console.Write("Укажите путь, где будут хранится общие папки: ");
+                userDiskPath = Path.Join(Console.ReadLine(), _diskName);
+                if (!IsValidFilePath(userDiskPath))
+                    userDiskPath = _defalutPath;
+                Directory.CreateDirectory(userDiskPath);
+                ConfigurationManager.AppSettings.Set("PathToDisk", userDiskPath);
+                
+                //Если не удалось подсоединиться к диспетчеру, то через некоторое время бросится Exception
+                using var sendCall = client.actionF();
+                
+                await sendCall.RequestStream.WriteAsync(new Msg {Type = (int) MsgType.CreateDisk});
+                await sendCall.RequestStream.CompleteAsync();
+                
+                var response = await sendCall;
+                //TODO: обработка разных кодов
+                if (response.Code == 1)
+                {
+                    string diskId = response.DiskId;
+                    syncedDirs.Add(userDiskPath, diskId);
+                }
+
+                Console.WriteLine($"Ответ сервера: {response.Code} {response.DiskId}");
+            }
+
+            var fsWorker = new FileSystemWorker(userDiskPath);
             fsWorker.Notify += SendMessage;
 
-            Console.WriteLine("Нажмите любую клавишу, чтобы завершить работу клиента");
-            Console.ReadKey();
+            do
+            {
+                Console.Write("\nУправление диском\n" +
+                                  "0 - Завершение работы\n" +
+                                  "1 - Посмотреть доступные папки\n" +
+                                  "2 - Добавить отслеживаемую папку\n" +
+                                  "Выбор: ");
+                string userChoice = Console.ReadLine();
+                switch (userChoice)
+                {
+                    case "0":
+                        Console.WriteLine("Завершение работы..");
+                        return;
+                    case "1":
+                        break;
+                    case "2":
+                        Console.WriteLine("Введите ID папки другого клиента: ");
+                        int id = int.Parse(Console.ReadLine());
+                        break;
+                    default:
+                        Console.WriteLine("Ошибка. Пункт отсутствует в меню.");
+                        break;
+                }
+
+            } while (true);
         }
     }
 }
