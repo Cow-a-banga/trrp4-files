@@ -7,7 +7,7 @@ service RemoteFolderManager {
 }
 
 message Msg {
-  int32 id = 1;
+  string id = 1;
   string path = 2;
   string newPath = 3;
   int32 type = 4;
@@ -16,5 +16,5 @@ message Msg {
 
 message Resp {
   int32 code = 1;
-  int32 id = 2;
+  string diskId = 2;
 }
