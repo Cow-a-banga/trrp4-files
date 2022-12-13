@@ -2,7 +2,9 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClientGrpc", "ClientGrpc\ClientGrpc.csproj", "{34433B17-2F7E-458F-880C-8CB5A0A9489C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileSystemWatcher", "FileSystemWatcher\FileSystemWatcher.csproj", "{7B6C6DE4-A7BF-4DB3-A290-0BB3412BB365}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileSystemWorkers", "FileSystemWorkers\FileSystemWorkers.csproj", "{7B6C6DE4-A7BF-4DB3-A290-0BB3412BB365}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileServer", "FileServer\FileServer.csproj", "{BF56D976-CC79-45D6-9BFB-AA31801A7469}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,5 +20,9 @@ Global
 		{7B6C6DE4-A7BF-4DB3-A290-0BB3412BB365}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B6C6DE4-A7BF-4DB3-A290-0BB3412BB365}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B6C6DE4-A7BF-4DB3-A290-0BB3412BB365}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF56D976-CC79-45D6-9BFB-AA31801A7469}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF56D976-CC79-45D6-9BFB-AA31801A7469}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF56D976-CC79-45D6-9BFB-AA31801A7469}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF56D976-CC79-45D6-9BFB-AA31801A7469}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
