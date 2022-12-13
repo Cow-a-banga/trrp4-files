@@ -1,3 +1,6 @@
+import json
+import socket
+
 import psycopg2
 
 
@@ -37,15 +40,28 @@ def getServ(config, idFolder):
 
         cur = con.cursor()
 
-        list_servers=[]
-        for i in range(1, 4):
-            if config['Serv'][f'visible{i}'] == 'True':
-                list_servers.append(i)
+        with open('servers.json') as f:
+            servers = json.load(f)
+
+        list_serv = []
+
+
+        for server in servers:
+            try:
+                sock = socket.socket()
+                sock.connect(server["ip"], server["port"])
+                sock.send(b"ok?")
+                sock.recv(10)
+                sock.close()
+                list_serv.append(server["id"])
+            except:
+                i = 0
+
 
         maxi = 99999999
         id = -1
 
-        for i in list_servers:
+        for i in list_serv:
             cur.execute(f"SELECT COUNT(*) FROM table_name WHERE id_server = {i}")
             rows = cur.fetchall()
             if rows[0][0] < maxi:
@@ -53,13 +69,14 @@ def getServ(config, idFolder):
                 id = i
 
         if id == -1:
-            return -3
+            return (-3, 0)
 
-        cur.execute(f"INSERT INTO table_name (id_folder, id_server) VALUES ({idFolder}, {id})")
+        cur.execute(f"INSERT INTO table_name (id_server) VALUES ({id}) RETURNING id_folder")
         con.commit()
+        rows = cur.fetchall()
         con.close()
 
-        return id
+        return (id, rows[0][0])
     except psycopg2.Error as error:
         con.close()
-        return -1
+        return (-1, 0)

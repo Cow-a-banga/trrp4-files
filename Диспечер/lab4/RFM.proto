@@ -16,4 +16,5 @@ message Msg {
 
 message Resp {
   int32 code = 1;
+  int32 id = 2;
 }
