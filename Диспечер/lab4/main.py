@@ -31,7 +31,7 @@ def GetIp(n):
 
 
 def getFile(iterator):
-    obj = {"id": 0, "path": "", "newPath": "", "type": 0, "file": b""}
+    obj = {"id": "", "path": "", "newPath": "", "type": 0, "file": b""}
 
     # собираем в него все содежимое
     for i in iterator:
@@ -57,7 +57,7 @@ class RemoteFolderManager(RFM_pb2_grpc.RemoteFolderManagerServicer):
             id, id_f = db.getServ(config, obj["id"])
 
             if id == -3:
-                return RFM_pb2.Resp(code=-3, id=0)
+                return RFM_pb2.Resp(code=-3, id="")
 
             ip = GetIp(id)
 
@@ -70,16 +70,16 @@ class RemoteFolderManager(RFM_pb2_grpc.RemoteFolderManagerServicer):
 
         # если хотим создать операцию с папкой а её нет то кидаем код ошибки
         if id == -1:
-            return RFM_pb2.Resp(code=-1, id=0)
+            return RFM_pb2.Resp(code=-1, id="")
 
         ip = GetIp(id)
 
         if ip == "-1":
-            return RFM_pb2.Resp(code = -2, id=0)
+            return RFM_pb2.Resp(code = -2, id="")
 
         # queue.send(obj, ip)
         print(ip + " " + str(obj["id"]))
-        return RFM_pb2.Resp(code=1, id=0)
+        return RFM_pb2.Resp(code=1, id="")
 
 
 def server():
