@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option csharp_namespace = "Client";
+
 package example;
 
 service RemoteFolderManager {
@@ -16,5 +18,5 @@ message Msg {
 
 message Resp {
   int32 code = 1;
-  int32 id = 2;
+  string diskId = 2;
 }
