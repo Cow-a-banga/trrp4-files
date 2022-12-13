@@ -18,4 +18,5 @@ message Msg {
 
 message Resp {
   int32 code = 1;
+  string diskId = 2;
 }
