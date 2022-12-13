@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Configuration;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using FileSystemWork;
 using Google.Protobuf;
 using Grpc.Net.Client;
@@ -20,14 +22,14 @@ namespace Client
             {
                 using var sendCall = client.actionF();
 
-                if (message.Type == (int)MsgType.CreateFile || message.Type == (int) MsgType.ChangeFile)
+                if (message.Type == MsgType.CreateFile || message.Type == MsgType.ChangeFile)
                 {
                     for (int i = 0; i < message.File.Length / BUFSIZE + 1; i++)
                     {
                         //Console.WriteLine(message.File.Skip(i * BUFSIZE).Take(BUFSIZE).Cast<ByteString>());
                         await sendCall.RequestStream.WriteAsync(new Msg
                         {
-                            Id = 0,
+                            Id = "0",
                             File = message.File.Length > 0 
                                 ? ByteString.CopyFrom(message.File.Skip(i * BUFSIZE).Take(BUFSIZE).ToArray())
                                 : ByteString.CopyFrom(message.File),
@@ -42,7 +44,7 @@ namespace Client
                    
                     await sendCall.RequestStream.WriteAsync(new Msg
                     {
-                        Id = 0,
+                        Id = "0",
                         File = ByteString.Empty,
                         NewPath = "",
                         Path = message.Path,
@@ -94,7 +96,7 @@ namespace Client
                 Directory.CreateDirectory(_path);
                 using var sendCall = client.actionF();
             
-                await sendCall.RequestStream.WriteAsync(new Msg {Id = 0, Type = (int) MsgType.CreateDisk});
+                await sendCall.RequestStream.WriteAsync(new Msg {Id = "0", Type = (int) MsgType.CreateDisk});
 
                 await sendCall.RequestStream.CompleteAsync();
                 var response = await sendCall;

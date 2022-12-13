@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 
 namespace FileSystemWork
 {
@@ -44,7 +45,7 @@ namespace FileSystemWork
                 buffer = new byte[fs.Length];
                 fs.Read(buffer, 0, buffer.Length);
             }
-            Notify?.Invoke(new Message(e.FullPath, (int) MsgType.ChangeFile, buffer));
+            Notify?.Invoke(new Message(e.FullPath, MsgType.ChangeFile, buffer));
             Console.WriteLine($"Изменено содержимое: {e.FullPath}\n");
         }
 
@@ -60,26 +61,26 @@ namespace FileSystemWork
                     buffer = new byte[fs.Length];
                     fs.Read(buffer, 0, buffer.Length);
                 }
-                Notify?.Invoke(new Message(e.FullPath, (int) MsgType.CreateFile, buffer)); 
+                Notify?.Invoke(new Message(e.FullPath, MsgType.CreateFile, buffer)); 
             }
             else 
-                Notify?.Invoke(new Message(e.FullPath, (int) MsgType.CreateDirectory)); 
+                Notify?.Invoke(new Message(e.FullPath, MsgType.CreateDirectory)); 
             Console.WriteLine($"Создано: {e.FullPath}\n");
         }
 
         private void OnDeleted(object sender, FileSystemEventArgs e)
         {
             Notify?.Invoke(Directory.Exists(e.FullPath)
-                ? new Message(e.FullPath, (int)MsgType.DeleteDirectory)
-                : new Message(e.FullPath, (int)MsgType.DeleteFile));
+                ? new Message(e.FullPath, MsgType.DeleteDirectory)
+                : new Message(e.FullPath, MsgType.DeleteFile));
             Console.WriteLine($"Удалено: {e.FullPath}\n");
         }
 
         private void OnRenamed(object sender, RenamedEventArgs e)
         {
             Notify?.Invoke(Directory.Exists(e.FullPath)
-                ? new Message(e.OldFullPath, e.FullPath,  (int)MsgType.RenameDirectory)
-                : new Message(e.OldFullPath,e.FullPath, (int)MsgType.RenameFile));
+                ? new Message(e.OldFullPath, e.FullPath,  MsgType.RenameDirectory)
+                : new Message(e.OldFullPath,e.FullPath, MsgType.RenameFile));
 
             Console.WriteLine("Переименование:");
             Console.WriteLine($"    Было: {e.OldFullPath}");
