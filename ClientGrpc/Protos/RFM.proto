@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option csharp_namespace = "Client";
+
+package example;
+
+service RemoteFolderManager {
+  rpc actionF (stream Msg) returns (Resp) {}
+}
+
+message Msg {
+  int32 id = 1;
+  string path = 2;
+  string newPath = 3;
+  int32 type = 4;
+  bytes file = 5;
+}
+
+message Resp {
+  int32 code = 1;
+}
