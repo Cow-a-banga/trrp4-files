@@ -32,6 +32,11 @@ namespace FileServer
             var port = int.Parse(ConfigurationManager.AppSettings.Get("SocketPingPort"));
             Task.Factory.StartNew(() => PingCheck(port), TaskCreationOptions.LongRunning);
 
+            if (!Directory.Exists(_foldersPath))
+            {
+                Directory.CreateDirectory(_foldersPath);
+            }
+
             var queue = new MessageQueue(hostName, queueName, username, password, HandleQueueMessage);
             queue.Start();
             Console.WriteLine(" Press [enter] to exit.");
