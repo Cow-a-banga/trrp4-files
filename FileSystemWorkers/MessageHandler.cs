@@ -13,7 +13,7 @@ namespace FileSystemWork
 
         public void Handle(Message message)
         {
-            switch (message.Type)
+            switch ((MsgType)message.Type)
             {
                 case MsgType.CreateDisk:
                     _creator.CreateDirectory(message.Path);

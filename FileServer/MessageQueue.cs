@@ -62,12 +62,12 @@ namespace Client
 
                 var id = Guid.NewGuid().ToString();
                 
-                var message1 = new Message("/", MsgType.CreateDisk)
+                var message1 = new Message("/", (int)MsgType.CreateDisk)
                 {
                     Id = id
                 };
                 
-                var message2 = new Message("NewDir", MsgType.CreateDirectory)
+                var message2 = new Message("NewDir", (int)MsgType.CreateDirectory)
                 {
                     Id = id
                 };

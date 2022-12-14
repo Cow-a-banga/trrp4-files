@@ -7,13 +7,13 @@ namespace FileSystemWork
         public string Id { get; set; }
         public string Path { get; }
         public string NewPath { get; }
-        public MsgType Type { get; }
+        public int Type { get; }
         public byte[] File { get; }
         public string ClientAddress { get; set; }
 
         public Message() {}
 
-        public Message(string path, MsgType type)
+        public Message(string path, int type)
         {
             Id = "";
             Path = path;
@@ -22,12 +22,12 @@ namespace FileSystemWork
             File = Array.Empty<byte>();
         }
     
-        public Message(string path, string newPath, MsgType type): this(path, type)
+        public Message(string path, string newPath, int type): this(path, type)
         {
             NewPath = newPath;
         }
     
-        public Message(string path, MsgType type, byte[] file): this(path, type)
+        public Message(string path, int type, byte[] file): this(path, type)
         {
             File = file;
         }
