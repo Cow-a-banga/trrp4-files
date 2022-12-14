@@ -39,8 +39,6 @@ namespace FileServer
 
             var queue = new MessageQueue(hostName, queueName, username, password, HandleQueueMessage);
             queue.Start();
-            Console.WriteLine(" Press [enter] to exit.");
-            Console.ReadLine();
         }
 
         private static void HandleQueueMessage(object? model, BasicDeliverEventArgs args)

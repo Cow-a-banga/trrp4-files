@@ -44,6 +44,9 @@ namespace Client
                     queue: _queueName,
                     autoAck: true,
                     consumer: consumer);
+                
+                Console.WriteLine(" Press [enter] to exit.");
+                Console.ReadLine();
             }
         }
 
