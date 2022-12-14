@@ -28,7 +28,7 @@ namespace Client
                 {
                     await sendCall.RequestStream.WriteAsync(new Msg
                     {
-                        Id = _syncedDirs.Find(dir => message.Path.Contains(dir.Path)).Id,
+                        Id = _syncedDirs.Find(dir => message.AbsPath.Contains(dir.Path)).Id,
                         File = ByteString.CopyFrom(message.File.Skip(i * Bufsize).Take(Bufsize).ToArray()),
                         NewPath = message.NewPath,
                         Path = message.Path,

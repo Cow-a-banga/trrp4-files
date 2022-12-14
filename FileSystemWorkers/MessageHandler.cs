@@ -16,7 +16,7 @@ namespace FileSystemWork
             switch (message.Type)
             {
                 case MsgType.CreateDisk:
-                    _creator.CreateDirectory(message.Path);
+                    _creator.CreateDirectory(message.Id);
                     break;
                 case MsgType.CreateDirectory:
                     _creator.CreateDirectory(message.Path);

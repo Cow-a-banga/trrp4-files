@@ -43,13 +43,13 @@ namespace FileSystemWork
             }
             
             byte[] buffer;
-            Thread.Sleep(300);
+            Thread.Sleep(100);
             using (FileStream fs = File.OpenRead(e.FullPath))
             {
                 buffer = new byte[fs.Length];
                 fs.Read(buffer, 0, buffer.Length);
             }
-            Notify?.Invoke(new Message(GetRelativePath(e.FullPath), MsgType.ChangeFile, buffer));
+            Notify?.Invoke(new Message(GetRelativePath(e.FullPath), _path, MsgType.ChangeFile, buffer));
             Console.WriteLine($"Изменено содержимое: {e.FullPath}\n");
         }
 
@@ -59,24 +59,24 @@ namespace FileSystemWork
             if (!Directory.Exists(e.FullPath))
             {
                 byte[] buffer;
-                Thread.Sleep(300);
+                Thread.Sleep(100);
                 using (FileStream fs = File.OpenRead(e.FullPath))
                 {
                     buffer = new byte[fs.Length];
                     fs.Read(buffer, 0, buffer.Length);
                 }
-                Notify?.Invoke(new Message(GetRelativePath(e.FullPath), MsgType.CreateFile, buffer)); 
+                Notify?.Invoke(new Message(GetRelativePath(e.FullPath), _path, MsgType.CreateFile, buffer)); 
             }
             else 
-                Notify?.Invoke(new Message(GetRelativePath(e.FullPath), MsgType.CreateDirectory)); 
+                Notify?.Invoke(new Message(GetRelativePath(e.FullPath), _path, MsgType.CreateDirectory)); 
             Console.WriteLine($"Создано: {e.FullPath}\n");
         }
 
         private void OnDeleted(object sender, FileSystemEventArgs e)
         {
             Notify?.Invoke(Directory.Exists(e.FullPath)
-                ? new Message(GetRelativePath(e.FullPath), MsgType.DeleteDirectory)
-                : new Message(GetRelativePath(e.FullPath), MsgType.DeleteFile));
+                ? new Message(GetRelativePath(e.FullPath), _path, MsgType.DeleteDirectory)
+                : new Message(GetRelativePath(e.FullPath), _path, MsgType.DeleteFile));
             Console.WriteLine($"Удалено: {e.FullPath}\n");
         }
 
