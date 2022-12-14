@@ -117,7 +117,8 @@ namespace Client
                 //TODO: обработка разных кодов
                 if (response.Code == 1)
                 {
-                    _syncedDirs.Add(new SyncDirInfo { Id = response.DiskId, Path = userDiskPath });
+                    _syncedDirs.Add(new SyncDirInfo { Id = response.DiskId, 
+                        Path = userDiskPath, CreatedByClient = true});
                     File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
                     var fsWorker = new FileSystemWorker(userDiskPath);
                     fsWorker.Notify += SendMessage;
