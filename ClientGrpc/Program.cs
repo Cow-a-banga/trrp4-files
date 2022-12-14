@@ -77,12 +77,11 @@ namespace Client
                 
             }
             
-            if (_syncedDirs is null) _syncedDirs = new List<SyncDirInfo>();
-
+            _syncedDirs ??= new List<SyncDirInfo>();
             _fsWorkers = new List<FileSystemWorker>();
 
-            bool nativeDirExists = false;
             //для каждой сихронизируемой папки добавляем обработчик, следящий за изменением файл.системы
+            bool nativeDirExists = false;
             foreach (var dir in _syncedDirs)
             {
                 if (dir.CreatedByClient)
@@ -120,6 +119,9 @@ namespace Client
                 {
                     _syncedDirs.Add(new SyncDirInfo { Id = response.DiskId, Path = userDiskPath });
                     File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
+                    var fsWorker = new FileSystemWorker(userDiskPath);
+                    fsWorker.Notify += SendMessage;
+                    _fsWorkers.Add(fsWorker);
                 }
 
                 Console.WriteLine($"Ответ сервера: {response.Code} {response.DiskId}");
@@ -129,6 +131,9 @@ namespace Client
             /*var syncThread = new Thread(new ClientSyncSocket(
                 int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run);
             syncThread.Start();*/
+            Task.Factory.StartNew(() => 
+                new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(), 
+                TaskCreationOptions.LongRunning);
  
 
             do
