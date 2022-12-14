@@ -48,7 +48,7 @@ namespace FileServer
                 var body = args.Body.ToArray();
                 var str = Encoding.UTF8.GetString(body);
                 var message = JsonConvert.DeserializeObject<Message>(str);
-                var dirPath = message.Id == null ? _foldersPath : Path.Combine(_foldersPath, message.Id);
+                var dirPath =  message.Type == MsgType.CreateDisk ? _foldersPath : Path.Combine(_foldersPath, message.Id);
                 var creator = new FilesSystemCreator(dirPath);
                 var handler = new MessageHandler(creator);
                 handler.Handle(message);
