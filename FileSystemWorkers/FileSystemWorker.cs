@@ -74,9 +74,7 @@ namespace FileSystemWork
 
         private void OnDeleted(object sender, FileSystemEventArgs e)
         {
-            Notify?.Invoke(Directory.Exists(e.FullPath)
-                ? new Message(GetRelativePath(e.FullPath), _path, MsgType.DeleteDirectory)
-                : new Message(GetRelativePath(e.FullPath), _path, MsgType.DeleteFile));
+            Notify?.Invoke(new Message(GetRelativePath(e.FullPath), _path, MsgType.Delete));
             Console.WriteLine($"Удалено: {e.FullPath}\n");
         }
 

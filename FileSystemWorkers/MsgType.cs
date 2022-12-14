@@ -4,11 +4,10 @@
     {
         CreateDisk = 1,
         CreateDirectory,
-        DeleteDirectory,
         RenameDirectory,
         CreateFile,
-        DeleteFile,
         ChangeFile,
-        RenameFile
+        RenameFile,
+        Delete
     }
 }

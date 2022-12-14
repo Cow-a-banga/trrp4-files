@@ -17,12 +17,7 @@ namespace FileSystemWork
         {
             Directory.CreateDirectory(AbsolutePath(path));
         }
-        
-        public void RemoveDirectory(string path)
-        {
-            Directory.Delete(AbsolutePath(path), true);
-        }
-        
+
         public void RenameDirectory(string oldPath, string newPath)
         {
             Directory.Move(AbsolutePath(oldPath), AbsolutePath(newPath));
@@ -44,9 +39,17 @@ namespace FileSystemWork
             }    
         }
         
-        public void RemoveFile(string path)
+        public void Delete(string path)
         {
-            File.Delete(AbsolutePath(path));
+            var attr = File.GetAttributes(AbsolutePath(path));
+            if (attr.HasFlag(FileAttributes.Directory))
+            {
+                Directory.Delete(AbsolutePath(path), true);
+            }
+            else
+            {
+                File.Delete(AbsolutePath(path));
+            }
         }
         
         public void RenameFile(string oldPath, string newPath)
