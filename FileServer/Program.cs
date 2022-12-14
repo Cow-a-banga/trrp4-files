@@ -47,7 +47,15 @@ namespace FileServer
             {
                 var body = args.Body.ToArray();
                 var str = Encoding.UTF8.GetString(body);
-                var message = JsonConvert.DeserializeObject<Message>(str);
+                var serverMessage = JsonConvert.DeserializeObject<ServerMessage>(str);
+                var message = new Message(serverMessage.Path, serverMessage.AbsPath, serverMessage.Type)
+                {
+                    Id = serverMessage.Id,
+                    NewPath = serverMessage.NewPath,
+                    Ip = serverMessage.Ip,
+                    File = Encoding.UTF8.GetBytes(serverMessage.File),
+                };
+                
                 var dirPath =  message.Type == MsgType.CreateDisk ? _foldersPath : Path.Combine(_foldersPath, message.Id);
                 var creator = new FilesSystemCreator(dirPath);
                 var handler = new MessageHandler(creator);
@@ -56,10 +64,10 @@ namespace FileServer
                 if(!_clients.ContainsKey(message.Id))
                     _clients.Add(message.Id, new List<ClientInfo>());
                 
-                if(_clients[message.Id].FirstOrDefault(x => x.ClientAddress == message.ClientAddress) == null)
-                    _clients[message.Id].Add(new ClientInfo(message.ClientAddress, _port));
+                if(_clients[message.Id].FirstOrDefault(x => x.ClientAddress == message.Ip) == null)
+                    _clients[message.Id].Add(new ClientInfo(message.Ip, _port));
 
-                foreach (var client in _clients[message.Id].Where(x => x.ClientAddress != message.ClientAddress))
+                foreach (var client in _clients[message.Id].Where(x => x.ClientAddress != message.Ip))
                 {
                     try
                     {
