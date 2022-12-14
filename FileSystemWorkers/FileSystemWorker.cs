@@ -7,11 +7,13 @@ namespace FileSystemWork
     public class FileSystemWorker
     {
         public delegate void FileSystemWorkerHandler(Message msg);
-        public event FileSystemWorkerHandler? Notify; 
+        public event FileSystemWorkerHandler? Notify;
+        private readonly string _path;
         private readonly FileSystemWatcher _watcher;
 
         public FileSystemWorker(string path)
-        { 
+        {
+            _path = path;
             _watcher = new FileSystemWatcher(path);
             _watcher.NotifyFilter = NotifyFilters.Attributes 
                                     | NotifyFilters.CreationTime
@@ -31,13 +33,15 @@ namespace FileSystemWork
             _watcher.EnableRaisingEvents = true;
         }
 
+        private string GetRelativePath(string absPath) => absPath.Substring(_path.Length + 1);
+
         private void OnChanged(object sender, FileSystemEventArgs e)
         {
             if (e.ChangeType != WatcherChangeTypes.Changed || Directory.Exists(e.FullPath))
             {
                 return;
             }
-
+            
             byte[] buffer;
             Thread.Sleep(300);
             using (FileStream fs = File.OpenRead(e.FullPath))
@@ -45,7 +49,7 @@ namespace FileSystemWork
                 buffer = new byte[fs.Length];
                 fs.Read(buffer, 0, buffer.Length);
             }
-            Notify?.Invoke(new Message(e.FullPath, MsgType.ChangeFile, buffer));
+            Notify?.Invoke(new Message(GetRelativePath(e.FullPath), MsgType.ChangeFile, buffer));
             Console.WriteLine($"Изменено содержимое: {e.FullPath}\n");
         }
 
@@ -61,26 +65,26 @@ namespace FileSystemWork
                     buffer = new byte[fs.Length];
                     fs.Read(buffer, 0, buffer.Length);
                 }
-                Notify?.Invoke(new Message(e.FullPath, MsgType.CreateFile, buffer)); 
+                Notify?.Invoke(new Message(GetRelativePath(e.FullPath), MsgType.CreateFile, buffer)); 
             }
             else 
-                Notify?.Invoke(new Message(e.FullPath, MsgType.CreateDirectory)); 
+                Notify?.Invoke(new Message(GetRelativePath(e.FullPath), MsgType.CreateDirectory)); 
             Console.WriteLine($"Создано: {e.FullPath}\n");
         }
 
         private void OnDeleted(object sender, FileSystemEventArgs e)
         {
             Notify?.Invoke(Directory.Exists(e.FullPath)
-                ? new Message(e.FullPath, MsgType.DeleteDirectory)
-                : new Message(e.FullPath, MsgType.DeleteFile));
+                ? new Message(GetRelativePath(e.FullPath), MsgType.DeleteDirectory)
+                : new Message(GetRelativePath(e.FullPath), MsgType.DeleteFile));
             Console.WriteLine($"Удалено: {e.FullPath}\n");
         }
 
         private void OnRenamed(object sender, RenamedEventArgs e)
         {
             Notify?.Invoke(Directory.Exists(e.FullPath)
-                ? new Message(e.OldFullPath, e.FullPath,  MsgType.RenameDirectory)
-                : new Message(e.OldFullPath,e.FullPath, MsgType.RenameFile));
+                ? new Message(GetRelativePath(e.OldFullPath), GetRelativePath(e.FullPath),  MsgType.RenameDirectory)
+                : new Message(GetRelativePath(e.OldFullPath),GetRelativePath(e.FullPath), MsgType.RenameFile));
 
             Console.WriteLine("Переименование:");
             Console.WriteLine($"    Было: {e.OldFullPath}");
