@@ -48,11 +48,13 @@ namespace FileServer
                 var body = args.Body.ToArray();
                 var str = Encoding.UTF8.GetString(body);
                 var serverMessage = JsonConvert.DeserializeObject<ServerMessage>(str);
+                var ipWithoutVersion = serverMessage.Ip.Substring(serverMessage.Ip.IndexOf(':') + 1);
+                var ipWithoutPort = ipWithoutVersion.Substring(0, ipWithoutVersion.IndexOf(':'));
                 var message = new Message(serverMessage.Path, serverMessage.AbsPath, serverMessage.Type)
                 {
                     Id = serverMessage.Id,
                     NewPath = serverMessage.NewPath,
-                    Ip = serverMessage.Ip,
+                    Ip = ipWithoutPort,
                     File = Encoding.UTF8.GetBytes(serverMessage.File),
                 };
                 
