@@ -14,7 +14,7 @@ namespace Client
         private const string DiskName = "TrrpDisk";
         private const string DefalutPath = @"C:\MySyncDir\TrrpDisk";
 
-        private static List<SyncDirInfo> _syncedDirs = new();
+        private static List<SyncDirInfo> _syncedDirs;
         private static List<FileSystemWorker> _fsWorkers;
         private static RemoteFolderManager.RemoteFolderManagerClient client;
 
@@ -24,31 +24,13 @@ namespace Client
             {
                 using var sendCall = client.actionF();
 
-                if (message.Type is MsgType.CreateFile or MsgType.ChangeFile)
-                {
-                    for (int i = 0; i < message.File.Length / Bufsize + 1; i++)
-                    {
-                        byte[] partOfFile = new byte[Bufsize];
-                        Array.Copy(message.File, i * Bufsize + 1, 
-                            partOfFile, 0, Bufsize);
-                        await sendCall.RequestStream.WriteAsync(new Msg
-                        {
-                            Id = _syncedDirs.Find(dir => message.Path.Contains(dir.Path)).Id,
-                            File = message.File.Length <= Bufsize ? 
-                                ByteString.CopyFrom(message.File) : ByteString.CopyFrom(partOfFile),
-                            NewPath = message.NewPath,
-                            Path = message.Path,
-                            Type = (int)message.Type
-                        });
-                    }
-                }
-                else
+                for (int i = 0; i < message.File.Length / Bufsize + 1; i++)
                 {
                     await sendCall.RequestStream.WriteAsync(new Msg
                     {
-                        Id =  _syncedDirs.Find(dir => message.Path.Contains(dir.Path)).Id,
-                        File = ByteString.Empty,
-                        NewPath = "",
+                        Id = _syncedDirs.Find(dir => message.Path.Contains(dir.Path)).Id,
+                        File = ByteString.CopyFrom(message.File.Skip(i * Bufsize).Take(Bufsize).ToArray()),
+                        NewPath = message.NewPath,
                         Path = message.Path,
                         Type = (int)message.Type
                     });
@@ -56,14 +38,13 @@ namespace Client
 
                 await sendCall.RequestStream.CompleteAsync();
                 var response = await sendCall;
-                
+
                 Console.WriteLine($"Ответ сервера: {response.Code}");
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Ошибка " + ex.Message);
             }
-
         }
 
         private static bool IsValidFilePath(string path)
@@ -95,6 +76,8 @@ namespace Client
                 }
                 
             }
+            
+            if (_syncedDirs is null) _syncedDirs = new List<SyncDirInfo>();
 
             _fsWorkers = new List<FileSystemWorker>();
 
@@ -118,7 +101,11 @@ namespace Client
                 Console.Write("Укажите путь, где будут хранится общие папки: ");
                 String userDiskPath = Path.Join(Console.ReadLine(), DiskName);
                 if (!IsValidFilePath(userDiskPath))
+                {
+                    Console.WriteLine("Указанный путь некорректен, используется путь по умолчанию - " + DefalutPath);
                     userDiskPath = DefalutPath;
+                }
+
                 Directory.CreateDirectory(userDiskPath);
 
                 //если не удалось подсоединиться к диспетчеру, то через некоторое время бросится Exception
@@ -137,6 +124,12 @@ namespace Client
 
                 Console.WriteLine($"Ответ сервера: {response.Code} {response.DiskId}");
             }
+
+            //создаем поток, в котором будет происходить синхронизация
+            /*var syncThread = new Thread(new ClientSyncSocket(
+                int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run);
+            syncThread.Start();*/
+ 
 
             do
             {
