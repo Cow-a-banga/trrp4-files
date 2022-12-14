@@ -9,6 +9,7 @@ namespace FileSystemWork
         public string? NewPath { get; set; }
         public MsgType Type { get; set; }
         public byte[]? File { get; set; }
+        public string ClientAddress { get; set; }
 
         public Message() {}
 
