@@ -124,7 +124,7 @@ namespace FileServer
                 var handler = new MessageHandler(creator);
                 handler.Handle(message);
 
-                foreach (var client in _clients[message.Id].Where(x => x.ClientAddress != message.Ip))
+                foreach (var client in _clients[message.Id].Where(x => x.ClientAddress != message.Ip).ToArray())
                 {
                     try
                     {
