@@ -76,7 +76,9 @@ public class ClientSyncSocket
                     string messageStr = Encoding.UTF8.GetString(readBytes.Take(bytesReadCount).ToArray());
                     Message msg = JsonConvert.DeserializeObject<Message>(messageStr);
                     var changedDir = dirInfo.Find(dir => dir.Id == msg.Id);
+                    changedDir.FsWorker.Dispose();
                     changedDir.MsgHandler.Handle(msg);
+                    changedDir.FsWorker = new FileSystemWorker(changedDir.Path);
                 }
                 
                 handler.Shutdown(SocketShutdown.Both);

@@ -1,9 +1,11 @@
 ﻿using System.Configuration;
+using System.Net.NetworkInformation;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using FileSystemWork;
 using Google.Protobuf;
 using Grpc.Net.Client;
+using System.Net.NetworkInformation;
 using FileStream = System.IO.FileStream;
 
 namespace Client
@@ -36,6 +38,28 @@ namespace Client
             }
         }
 
+        private static void PingDispatcher()
+        {
+            var ping = new Ping();
+            IPStatus replyIpStatus = IPStatus.Success, prevReplyIpStatus;
+            while (true)
+            {
+                prevReplyIpStatus = replyIpStatus;
+                replyIpStatus = ping.Send("dzen.ru").Status;
+                if (prevReplyIpStatus != IPStatus.Success && replyIpStatus == IPStatus.Success)
+                {
+                    Console.WriteLine("Восстановлено соединение с диспетчером. Происходит синхронизация.. " +
+                                      "Не отключайте Ваше устройство");
+                    foreach (var dir in _syncedDirs)
+                    {
+                        SendMessage(new Message { Id = dir.Id, Type = MsgType.LoadDisk});
+                    }
+                }
+                
+                Thread.Sleep(350000);
+            }
+        } 
+
         private static bool IsValidFilePath(string path)
         {
             var invalidChars = string.Join("", Path.GetInvalidPathChars());
@@ -67,9 +91,12 @@ namespace Client
             }
 
             _syncedDirs ??= new List<SyncDirInfo>();
+            
+            //создаем поток, где проверяем интернет-соединение
+            await Task.Factory.StartNew(PingDispatcher);
 
             //создаем поток, в котором будет происходить синхронизация папок с сервером
-            Task.Factory.StartNew(() =>
+            await Task.Factory.StartNew(() =>
                     new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs),
                 TaskCreationOptions.LongRunning);
 
@@ -88,19 +115,23 @@ namespace Client
                 dir.FsWorker = new FileSystemWorker(dir.Path);
                 dir.MsgHandler = new MessageHandler(new FilesSystemCreator(dir.Path));
 
-                var response = await client.actionFAsync(new Msg
+                Resp? response = null;
+                try
                 {
-                    Id = dir.Id,
-                    Type = (int)MsgType.LoadDisk
-                });
-                if (response.Code == 1)
-                {
-                    Console.WriteLine("Все изменения синхронизированы");
+                    response = await client.actionFAsync(new Msg
+                    {
+                        Id = dir.Id,
+                        Type = (int)MsgType.LoadDisk
+                    });
                 }
-                else
+                catch (Exception ex)
                 {
-                    Console.WriteLine("Не удалось синхронизироваться. Включен режим чтения.");
+                    Console.WriteLine("Не удалось синхронизироваться. Ваши изменения не будут сохранены!\n" + ex.Message);
                 }
+
+                Console.WriteLine(response is { Code: 1 }
+                    ? "Все изменения синхронизированы"
+                    : "Не удалось синхронизироваться. Ваши изменения не будут сохранены!");
             }
 
             //создаем папку для синхронизации у клиента
@@ -152,14 +183,6 @@ namespace Client
                 {
                     case "0":
                         Console.WriteLine("Завершение работы..");
-                        foreach (var dir in _syncedDirs)
-                        {
-                            var directoryInfo = new DirectoryInfo(dir.Path)
-                            {
-                                Attributes = FileAttributes.Hidden
-                            };
-                        }
-
                         return;
                     case "1":
                         Console.WriteLine("Название синхронизируемой папки - ID папки");
@@ -174,12 +197,21 @@ namespace Client
                         {
                             Directory.CreateDirectory(path);
                             _syncedDirs.Add(new SyncDirInfo(id, path, false));
-                            var response = await client.actionFAsync(new Msg
+                            Resp? response;
+                            try
                             {
-                                Id = id,
-                                Type = (int)MsgType.LoadDisk
-                            });
-                            if (response.Code == 1)
+                                response = await client.actionFAsync(new Msg
+                                {
+                                    Id = id,
+                                    Type = (int)MsgType.LoadDisk
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine("Не удалось подключить к сервису синхронизации\n" + ex.Message);
+                                return;
+                            }
+                            if (response is { Code: 1 })
                             {
                                 File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
                             }
