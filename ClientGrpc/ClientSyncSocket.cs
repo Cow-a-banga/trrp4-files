@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using FileSystemWork;
 
 namespace Client;
 
@@ -53,12 +54,12 @@ public class ClientSyncSocket
                     
                 }
                 var changedDir = dirInfo.Find(dir => dir.Id == dirId);
-                changedDir.FsWorker.Notify -= Program.SendMessage;
+                changedDir.FsWorker.Dispose();
                 Directory.Delete(changedDir.Path, true);
                 Directory.CreateDirectory(changedDir.Path);
                 ZipFile.ExtractToDirectory("result.zip", changedDir.Path);
                 File.Delete("result.zip");
-                changedDir.FsWorker.Notify += Program.SendMessage;
+                changedDir.FsWorker = new FileSystemWorker(changedDir.Path);
 
                 handler.Shutdown(SocketShutdown.Both);
                 handler.Close();

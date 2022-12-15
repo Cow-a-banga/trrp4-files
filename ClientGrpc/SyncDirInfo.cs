@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace Client;
 
-public class SyncDirInfo
+public class SyncDirInfo: IDisposable
 {
     private FileSystemWorker _fsWorker;
     public string Id { get; set; }
@@ -36,8 +36,9 @@ public class SyncDirInfo
         MsgHandler = new MessageHandler(new FilesSystemCreator(Path));
     }
 
-    ~SyncDirInfo()
+    public void Dispose()
     {
         FsWorker.Notify -= Program.SendMessage;
+        FsWorker.Dispose();
     }
 }

@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace FileSystemWork
 {
-    public class FileSystemWorker
+    public class FileSystemWorker: IDisposable
     {
         public delegate void FileSystemWorkerHandler(Message msg);
         public event FileSystemWorkerHandler? Notify;
@@ -28,7 +28,7 @@ namespace FileSystemWork
             _watcher.Deleted += OnDeleted;
             _watcher.Renamed += OnRenamed;
             _watcher.Error += OnError;
-            _watcher.NotifyFilter = NotifyFilters.Attributes;
+            //_watcher.NotifyFilter = NotifyFilters.Attributes;
 
             _watcher.IncludeSubdirectories = true;
             _watcher.EnableRaisingEvents = true;
@@ -120,6 +120,16 @@ namespace FileSystemWork
                 Console.WriteLine();
                 PrintException(ex.InnerException);
             }
+        }
+
+        public void Dispose()
+        {
+            _watcher.Changed -= OnChanged;
+            _watcher.Created -= OnCreated;
+            _watcher.Deleted -= OnDeleted;
+            _watcher.Renamed -= OnRenamed;
+            _watcher.Error -= OnError;
+            _watcher.EnableRaisingEvents = false;
         }
     }
 }

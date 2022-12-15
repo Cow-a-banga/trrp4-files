@@ -48,11 +48,6 @@ namespace Client
         {
             using var channel = GrpcChannel.ForAddress(ConfigurationManager.AppSettings.Get("Address")!);
             client = new RemoteFolderManager.RemoteFolderManagerClient(channel);
-            
-            //синхронизация папок с сервером
-            Task.Factory.StartNew(() =>
-                    new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs),
-                TaskCreationOptions.LongRunning);
 
             //считываем папки, которые синхронизируются у клиента
             using (FileStream fs = new FileStream("index.json", FileMode.OpenOrCreate))
@@ -73,6 +68,11 @@ namespace Client
 
             _syncedDirs ??= new List<SyncDirInfo>();
 
+            //создаем поток, в котором будет происходить синхронизация папок с сервером
+            Task.Factory.StartNew(() =>
+                    new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs),
+                TaskCreationOptions.LongRunning);
+
             //для каждой сихронизируемой папки добавляем обработчик, следящий за изменением файл.системы
             bool nativeDirExists = false;
             foreach (var dir in _syncedDirs)
@@ -87,6 +87,9 @@ namespace Client
                     nativeDirExists = true;
                 }
 
+                dir.FsWorker = new FileSystemWorker(dir.Path);
+                dir.MsgHandler = new MessageHandler(new FilesSystemCreator(dir.Path));
+
                 var response = await client.actionFAsync(new Msg
                 {
                     Id = dir.Id,
@@ -100,9 +103,6 @@ namespace Client
                 {
                     Console.WriteLine("Не удалось синхронизироваться. Включен режим чтения.");
                 }
-
-                dir.FsWorker = new FileSystemWorker(dir.Path);
-                dir.MsgHandler = new MessageHandler(new FilesSystemCreator(dir.Path));
             }
 
             //создаем папку для синхронизации у клиента
@@ -141,18 +141,13 @@ namespace Client
                 Console.WriteLine($"Ответ сервера: {response.Code}, {response.DiskId}");
             }
 
-            //создаем поток, в котором будет происходить синхронизация
-            Task.Factory.StartNew(() =>
-                    new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs),
-                TaskCreationOptions.LongRunning);
-
-
             do
             {
                 Console.Write("\nУправление диском\n" +
                               "0 - Завершение работы\n" +
                               "1 - Посмотреть доступные папки\n" +
                               "2 - Добавить отслеживаемую папку\n" +
+                              "3 - Удалить отслеживаемую папку\n" +
                               "Выбор: ");
                 string userChoice = Console.ReadLine();
                 switch (userChoice)
@@ -176,9 +171,11 @@ namespace Client
                         Console.Write("Введите ID папки другого клиента: ");
                         string id = Console.ReadLine();
                         Console.Write("Укажите путь, где будут хранится синхронизируемая папка: ");
-                        string path = Path.Join(Console.ReadLine(), DiskName);
+                        string path = Path.Join(Console.ReadLine(), id);
                         if (IsValidFilePath(path) && _syncedDirs.Find(dir => path.Contains(dir.Path)) == null)
                         {
+                            Directory.CreateDirectory(path);
+                            _syncedDirs.Add(new SyncDirInfo(id, path, false));
                             var response = await client.actionFAsync(new Msg
                             {
                                 Id = id,
@@ -186,8 +183,13 @@ namespace Client
                             });
                             if (response.Code == 1)
                             {
-                                _syncedDirs.Add(new SyncDirInfo(id, path, false));
                                 File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
+                            }
+                            else
+                            {
+                                _syncedDirs.Last().Dispose();
+                                _syncedDirs.Remove(_syncedDirs.Last());
+                                Directory.Delete(_syncedDirs.Last().Path, true);
                             }
 
                             Console.WriteLine($"Ответ сервера: {response.Code}");
@@ -198,6 +200,30 @@ namespace Client
                             Console.WriteLine("Ошибка. Некорректный путь");
                         }
 
+                        break;
+                    case "3":
+                        for (int i = 0; i < _syncedDirs.Count; i++)
+                        {
+                            Console.WriteLine($"{i + 1} - {_syncedDirs[i].Path}");
+                        }
+
+                        Console.Write("Выберите синхронизируемую папку для удаления: ");
+                        int numDirForDelete;
+                        if (!int.TryParse(Console.ReadLine(), out numDirForDelete) ||
+                            numDirForDelete < 1 || numDirForDelete > _syncedDirs.Count)
+                        {
+                            Console.WriteLine("Ошибка. Папки с таким номером не существует");
+                            break;
+                        }
+
+                        var syncDirForDelete = _syncedDirs[numDirForDelete - 1];
+                        syncDirForDelete.Dispose();
+                        if (Directory.Exists(syncDirForDelete.Path))
+                        {
+                            Directory.Delete(syncDirForDelete.Path, true);
+                        }
+                        _syncedDirs.Remove(syncDirForDelete);
+                        File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
                         break;
                     default:
                         Console.WriteLine("Ошибка. Пункт отсутствует в меню.");
