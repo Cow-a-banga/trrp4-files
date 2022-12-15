@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 using FileSystemWork;
 using Google.Protobuf;
 using Grpc.Net.Client;
-using System.Net.NetworkInformation;
 using FileStream = System.IO.FileStream;
 
 namespace Client
@@ -34,7 +33,7 @@ namespace Client
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Ошибка " + ex.Message);
+                Console.WriteLine("Ошибка. " + ex.Message);
             }
         }
 
@@ -55,8 +54,7 @@ namespace Client
                         SendMessage(new Message { Id = dir.Id, Type = MsgType.LoadDisk});
                     }
                 }
-                
-                Thread.Sleep(350000);
+                Thread.Sleep(35000);
             }
         } 
 
@@ -93,10 +91,10 @@ namespace Client
             _syncedDirs ??= new List<SyncDirInfo>();
             
             //создаем поток, где проверяем интернет-соединение
-            await Task.Factory.StartNew(PingDispatcher);
+            Task.Factory.StartNew(PingDispatcher, TaskCreationOptions.LongRunning);
 
             //создаем поток, в котором будет происходить синхронизация папок с сервером
-            await Task.Factory.StartNew(() =>
+            Task.Factory.StartNew(() =>
                     new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs),
                 TaskCreationOptions.LongRunning);
 
