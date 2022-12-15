@@ -129,6 +129,7 @@ namespace FileServer
                     try
                     {
                         var length = Encoding.UTF8.GetBytes($"{body.Length}");
+                        client.Socket.Connect(client.IpPoint);
                         client.Socket.Send(length);
                         client.Socket.Send(body);
                     }
@@ -136,6 +137,15 @@ namespace FileServer
                     {
                         client.Dispose();
                         _clients[message.Id].Remove(client);
+                    }
+                    finally
+                    {
+                        if (client.Socket.Connected)
+                        {
+                            client.Socket.Shutdown(SocketShutdown.Both);
+                            client.Socket.Close();
+                            client.RecreateSocket();
+                        }
                     }
                 }
             }
