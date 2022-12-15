@@ -40,18 +40,26 @@ namespace Client
         private static void PingDispatcher()
         {
             var ping = new Ping();
-            IPStatus replyIpStatus = IPStatus.Success, prevReplyIpStatus;
+            bool replyIpStatus = true, prevReplyIpStatus;
             while (true)
             {
                 prevReplyIpStatus = replyIpStatus;
-                replyIpStatus = ping.Send("dzen.ru").Status;
-                if (prevReplyIpStatus != IPStatus.Success && replyIpStatus == IPStatus.Success)
+                try
+                {
+                    ping.Send("google.com");
+                    replyIpStatus = true;
+                }
+                catch (Exception e)
+                {
+                    replyIpStatus = false;
+                }
+                if (!prevReplyIpStatus && replyIpStatus)
                 {
                     Console.WriteLine("Восстановлено соединение с диспетчером. Происходит синхронизация.. " +
                                       "Не отключайте Ваше устройство");
                     foreach (var dir in _syncedDirs)
                     {
-                        SendMessage(new Message { Id = dir.Id, Type = MsgType.LoadDisk});
+                        SendMessage(new Message("", dir.Path, MsgType.LoadDisk));
                     }
                 }
                 Thread.Sleep(35000);
