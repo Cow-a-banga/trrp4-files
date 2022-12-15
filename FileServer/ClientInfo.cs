@@ -8,13 +8,18 @@ namespace FileSystemWork
     {
         public string ClientAddress { get; set; }
         public Socket Socket { get; set; }
+        public IPEndPoint IpPoint { get; set; }
 
         public ClientInfo(string ip, int port)
         {
             ClientAddress = ip;
-            var ipPoint = new IPEndPoint(IPAddress.Any, port);
+            IpPoint = new IPEndPoint(IPAddress.Parse(ip), port);
+            RecreateSocket();
+        }
+
+        public void RecreateSocket()
+        {
             Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            Socket.Bind(ipPoint);
         }
 
         public void Dispose()

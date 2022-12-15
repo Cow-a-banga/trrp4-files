@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -18,7 +19,7 @@ namespace FileServer
     {
         private static string _foldersPath;
         private static Dictionary<string, List<ClientInfo>> _clients;
-        private const int _port = 6457;
+        private static int _syncPort;
         
         public static void Main(string[] args)
         {
@@ -28,7 +29,7 @@ namespace FileServer
             var password = ConfigurationManager.AppSettings.Get("Password");
             _foldersPath = ConfigurationManager.AppSettings.Get("FoldersPath");
             _clients = new Dictionary<string, List<ClientInfo>>();
-            
+            _syncPort = int.Parse(ConfigurationManager.AppSettings.Get("SocketSyncPort"));
             var port = int.Parse(ConfigurationManager.AppSettings.Get("SocketPingPort"));
             Task.Factory.StartNew(() => PingCheck(port), TaskCreationOptions.LongRunning);
 
@@ -58,16 +59,70 @@ namespace FileServer
                     File = Convert.FromBase64String(serverMessage.File)
                 };
                 
+                if(!_clients.ContainsKey(message.Id))
+                    _clients.Add(message.Id, new List<ClientInfo>());
+
+                if (_clients[message.Id].FirstOrDefault(x => x.ClientAddress == message.Ip) == null)
+                {
+                    ClientInfo client = null;
+                    try
+                    {
+                        client = new ClientInfo(message.Ip, _syncPort);
+                    }
+                    catch(Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
+                    
+                    if(client != null)
+                        _clients[message.Id].Add(client);
+                }
+                    
+
+                if (message.Type == MsgType.LoadDisk)
+                {
+                    var pathToDir = Path.Combine(_foldersPath, message.Id);
+                    var zipPath = $"{pathToDir}.zip";
+                    ClientInfo client = null;
+                    try
+                    {
+                        client = _clients[message.Id].FirstOrDefault(x => x.ClientAddress == message.Ip);
+                        if (client == null)
+                            return;
+                        
+                        ZipFile.CreateFromDirectory(pathToDir, zipPath);
+                        
+                        client.Socket.Connect(client.IpPoint);
+                        client.Socket.Send(Encoding.UTF8.GetBytes(message.Id));
+                        byte[] data = new byte[1024];
+                        var length = client.Socket.Receive(data);
+                        var answer = Encoding.UTF8.GetString(data);
+                        client.Socket.SendFile(zipPath);
+                        length = client.Socket.Receive(data);
+                        answer = Encoding.UTF8.GetString(data);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
+                    finally
+                    {
+                        File.Delete(zipPath);
+                        if (client != null && client.Socket.Connected)
+                        {
+                            client.Socket.Shutdown(SocketShutdown.Both);
+                            client.Socket.Close();
+                            client.RecreateSocket();
+                        }
+                            
+                    }
+                    return;
+                }
+                
                 var dirPath =  message.Type == MsgType.CreateDisk ? _foldersPath : Path.Combine(_foldersPath, message.Id);
                 var creator = new FilesSystemCreator(dirPath);
                 var handler = new MessageHandler(creator);
                 handler.Handle(message);
-                
-                if(!_clients.ContainsKey(message.Id))
-                    _clients.Add(message.Id, new List<ClientInfo>());
-                
-                if(_clients[message.Id].FirstOrDefault(x => x.ClientAddress == message.Ip) == null)
-                    _clients[message.Id].Add(new ClientInfo(message.Ip, _port));
 
                 foreach (var client in _clients[message.Id].Where(x => x.ClientAddress != message.Ip))
                 {
