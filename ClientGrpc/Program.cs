@@ -77,15 +77,13 @@ namespace Client
             bool nativeDirExists = false;
             foreach (var dir in _syncedDirs)
             {
-                var directoryInfo = new DirectoryInfo(dir.Path)
-                {
-                    Attributes = FileAttributes.Hidden
-                };
-
                 if (dir.CreatedByClient)
                 {
                     nativeDirExists = true;
                 }
+
+                if (!Directory.Exists(dir.Path)) //если синхронизируемая папка была удалена
+                    break;
 
                 dir.FsWorker = new FileSystemWorker(dir.Path);
                 dir.MsgHandler = new MessageHandler(new FilesSystemCreator(dir.Path));
