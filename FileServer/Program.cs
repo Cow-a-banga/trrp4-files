@@ -93,6 +93,7 @@ namespace FileServer
                         ZipFile.CreateFromDirectory(pathToDir, zipPath);
                         
                         client.Socket.Connect(client.IpPoint);
+                        client.Socket.Send(new byte[] { 0 });
                         client.Socket.Send(Encoding.UTF8.GetBytes(message.Id));
                         byte[] data = new byte[1024];
                         var length = client.Socket.Receive(data);
@@ -130,7 +131,7 @@ namespace FileServer
                     {
                         var length = Encoding.UTF8.GetBytes($"{body.Length}");
                         client.Socket.Connect(client.IpPoint);
-                        client.Socket.Send(length);
+                        client.Socket.Send(new byte[] { 1 });
                         client.Socket.Send(body);
                     }
                     catch (Exception e)
