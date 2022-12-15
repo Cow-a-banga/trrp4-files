@@ -48,6 +48,11 @@ namespace Client
         {
             using var channel = GrpcChannel.ForAddress(ConfigurationManager.AppSettings.Get("Address")!);
             client = new RemoteFolderManager.RemoteFolderManagerClient(channel);
+            
+            //синхронизация папок с сервером
+            Task.Factory.StartNew(() =>
+                    new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs),
+                TaskCreationOptions.LongRunning);
 
             //считываем папки, которые синхронизируются у клиента
             using (FileStream fs = new FileStream("index.json", FileMode.OpenOrCreate))
@@ -63,19 +68,39 @@ namespace Client
                         Console.WriteLine("Не удалось загрузить информацию о синхронизируемых папках\n" + ex.Message);
                     }
                 }
-                
+
             }
-            
+
             _syncedDirs ??= new List<SyncDirInfo>();
 
             //для каждой сихронизируемой папки добавляем обработчик, следящий за изменением файл.системы
             bool nativeDirExists = false;
             foreach (var dir in _syncedDirs)
             {
+                var directoryInfo = new DirectoryInfo(dir.Path)
+                {
+                    Attributes = FileAttributes.Hidden
+                };
+
                 if (dir.CreatedByClient)
                 {
                     nativeDirExists = true;
                 }
+
+                var response = await client.actionFAsync(new Msg
+                {
+                    Id = dir.Id,
+                    Type = (int)MsgType.LoadDisk
+                });
+                if (response.Code == 1)
+                {
+                    Console.WriteLine("Все изменения синхронизированы");
+                }
+                else
+                {
+                    Console.WriteLine("Не удалось синхронизироваться. Включен режим чтения.");
+                }
+
                 dir.FsWorker = new FileSystemWorker(dir.Path);
                 dir.MsgHandler = new MessageHandler(new FilesSystemCreator(dir.Path));
             }
@@ -91,7 +116,9 @@ namespace Client
                     userDiskPath = DefalutPath;
                 }
 
-                Directory.CreateDirectory(userDiskPath);
+                var r = Directory.CreateDirectory(userDiskPath);
+                r.Attributes = FileAttributes.Normal;
+
 
                 //если не удалось подсоединиться к диспетчеру, то через некоторое время бросится Exception
                 Resp? response;
@@ -104,20 +131,21 @@ namespace Client
                     Console.WriteLine("Не удалось подключить к сервису синхронизации\n" + ex.Message);
                     return;
                 }
-                
+
                 if (response.Code == 1) // синхронизируемая папка создана на сервера
                 {
                     _syncedDirs.Add(new SyncDirInfo(response.DiskId, userDiskPath, true));
                     File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
                 }
+
                 Console.WriteLine($"Ответ сервера: {response.Code}, {response.DiskId}");
             }
 
             //создаем поток, в котором будет происходить синхронизация
-            Task.Factory.StartNew(() => 
-                new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs), 
+            Task.Factory.StartNew(() =>
+                    new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs),
                 TaskCreationOptions.LongRunning);
- 
+
 
             do
             {
@@ -131,6 +159,14 @@ namespace Client
                 {
                     case "0":
                         Console.WriteLine("Завершение работы..");
+                        foreach (var dir in _syncedDirs)
+                        {
+                            var directoryInfo = new DirectoryInfo(dir.Path)
+                            {
+                                Attributes = FileAttributes.Hidden
+                            };
+                        }
+
                         return;
                     case "1":
                         Console.WriteLine("Название синхронизируемой папки - ID папки");
@@ -143,18 +179,25 @@ namespace Client
                         string path = Path.Join(Console.ReadLine(), DiskName);
                         if (IsValidFilePath(path) && _syncedDirs.Find(dir => path.Contains(dir.Path)) == null)
                         {
-                            Directory.CreateDirectory(path);
-                            _syncedDirs.Add(new SyncDirInfo(id, path, false));
-                            File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
+                            var response = await client.actionFAsync(new Msg
+                            {
+                                Id = id,
+                                Type = (int)MsgType.LoadDisk
+                            });
+                            if (response.Code == 1)
+                            {
+                                _syncedDirs.Add(new SyncDirInfo(id, path, false));
+                                File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
+                            }
+
+                            Console.WriteLine($"Ответ сервера: {response.Code}");
                             Console.WriteLine("Синхронизируемая папка успешно добавлена!");
                         }
                         else
                         {
                             Console.WriteLine("Ошибка. Некорректный путь");
                         }
-                        
-                        //TODO: вызов удаленной процедуры по клонированию папки на клиент
-                        
+
                         break;
                     default:
                         Console.WriteLine("Ошибка. Пункт отсутствует в меню.");

@@ -28,6 +28,7 @@ namespace FileSystemWork
             _watcher.Deleted += OnDeleted;
             _watcher.Renamed += OnRenamed;
             _watcher.Error += OnError;
+            _watcher.NotifyFilter = NotifyFilters.Attributes;
 
             _watcher.IncludeSubdirectories = true;
             _watcher.EnableRaisingEvents = true;

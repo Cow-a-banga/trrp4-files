@@ -1,8 +1,7 @@
-﻿using System.Net;
+﻿using System.IO.Compression;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using FileSystemWork;
-using Newtonsoft.Json;
 
 namespace Client;
 
@@ -20,52 +19,54 @@ public class ClientSyncSocket
 
     public void Run(List<SyncDirInfo> dirInfo)
     {
-        try
+        serverSocket.Bind(ipPoint);
+        serverSocket.Listen(15);
+        while (true)
         {
-            serverSocket.Bind(ipPoint);
-            serverSocket.Listen(100);
-            Console.WriteLine("Сервер запущен. Ждём входящих соединений");
-            while (true)
+            try
             {
                 var handler = serverSocket.Accept();
-                Console.WriteLine("Обрабатываем входящее подключение");
+                Console.WriteLine("Server start synchronization. ");
 
-                while (true)
+                string dirId;
+                using (var output = File.Create("result.zip"))
                 {
-                    var lengthBytes = new byte[3];
-                    int readBytes = handler.Receive(lengthBytes);
-                    if (readBytes == 0) // конец приема
-                        break;
-                    int packageLength = int.Parse(Encoding.UTF8.GetString(lengthBytes));
-                    byte[] packageBytes = new byte[packageLength];
+                    Console.Write("Receiving a file id. ");
+                    byte[] readBytes = new byte[handler.ReceiveBufferSize];
+                    int bytesReadCount = handler.Receive(readBytes);
+                    dirId = Encoding.UTF8.GetString(readBytes.Take(bytesReadCount).ToArray());
+                    handler.Send(Encoding.UTF8.GetBytes($"Id ({dirId}) collected"));
+                    Console.WriteLine("[Success]");
+                    Console.WriteLine($"Id ({dirId}) collected");
 
-                    handler.Receive(packageBytes);
-
-                    try
+                    Console.Write("Receiving a file. ");
+                    do
                     {
-                        JsonConvert.DeserializeObject<Message>(
-                            Encoding.UTF8.GetString(packageBytes));
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Ошибка при получении данных\n" + ex.Message);
-                        Console.WriteLine($"Передаваемая строка {Encoding.UTF8.GetString(packageBytes)}");
-                    }
+                        bytesReadCount = handler.Receive(readBytes);
+                        output.Write(readBytes, 0, bytesReadCount);
+                    } while (bytesReadCount == handler.ReceiveBufferSize);
 
+
+                    handler.Send(Encoding.UTF8.GetBytes("File collected"));
+                    Console.WriteLine("[Success]");
+
+                    
                 }
+                var changedDir = dirInfo.Find(dir => dir.Id == dirId);
+                changedDir.FsWorker.Notify -= Program.SendMessage;
+                Directory.Delete(changedDir.Path, true);
+                Directory.CreateDirectory(changedDir.Path);
+                ZipFile.ExtractToDirectory("result.zip", changedDir.Path);
+                File.Delete("result.zip");
+                changedDir.FsWorker.Notify += Program.SendMessage;
 
                 handler.Shutdown(SocketShutdown.Both);
                 handler.Close();
             }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }
-        finally
-        {
-            Console.WriteLine("Нажмите Enter, чтобы завершить работу программы");
-            Console.ReadLine();
+            catch (Exception ex)
+            {
+                Console.WriteLine("Ошибка " + ex);
+            }
         }
     }
 }

@@ -8,6 +8,7 @@
         CreateFile,
         ChangeFile,
         RenameFile,
-        Delete
+        Delete,
+        LoadDisk
     }
 }
