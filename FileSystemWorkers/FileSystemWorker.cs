@@ -43,12 +43,20 @@ namespace FileSystemWork
             }
             
             byte[] buffer;
-            Thread.Sleep(100);
-            using (FileStream fs = File.OpenRead(e.FullPath))
+            Thread.Sleep(300);
+            try
             {
-                buffer = new byte[fs.Length];
-                fs.Read(buffer, 0, buffer.Length);
+                using (FileStream fs = File.OpenRead(e.FullPath))
+                {
+                    buffer = new byte[fs.Length];
+                    fs.Read(buffer, 0, buffer.Length);
+                }
             }
+            catch (Exception)
+            {
+                return;
+            }
+            
             Notify?.Invoke(new Message(GetRelativePath(e.FullPath), e.FullPath, MsgType.ChangeFile, buffer));
             Console.WriteLine($"Изменено содержимое: {e.FullPath}\n");
         }
@@ -59,12 +67,20 @@ namespace FileSystemWork
             {
                 byte[] buffer;
                 Thread.Sleep(300);
-                using (FileStream fs = File.OpenRead(e.FullPath))
+                try
                 {
-                    buffer = new byte[fs.Length];
-                    fs.Read(buffer, 0, buffer.Length);
+                    using (FileStream fs = File.OpenRead(e.FullPath))
+                    {
+                        buffer = new byte[fs.Length];
+                        fs.Read(buffer, 0, buffer.Length);
+                    }
+
+                    Notify?.Invoke(new Message(GetRelativePath(e.FullPath), e.FullPath, MsgType.CreateFile, buffer));
                 }
-                Notify?.Invoke(new Message(GetRelativePath(e.FullPath), e.FullPath, MsgType.CreateFile, buffer)); 
+                catch (Exception)
+                {
+                    return;
+                }
             }
             else 
                 Notify?.Invoke(new Message(GetRelativePath(e.FullPath), e.FullPath, MsgType.CreateDirectory)); 

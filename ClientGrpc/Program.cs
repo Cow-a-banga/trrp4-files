@@ -10,35 +10,24 @@ namespace Client
 {
     public static class Program
     {
-        private const int Bufsize = 41943040;
         private const string DiskName = "TrrpDisk";
         private const string DefalutPath = @"C:\MySyncDir\TrrpDisk";
 
         private static List<SyncDirInfo> _syncedDirs;
-        private static List<FileSystemWorker> _fsWorkers;
         private static RemoteFolderManager.RemoteFolderManagerClient client;
 
-        private static async void SendMessage(Message message)
+        public static async void SendMessage(Message message)
         {
             try
             {
-                using var sendCall = client.actionF();
-
-                for (int i = 0; i < message.File.Length / Bufsize + 1; i++)
+                var response = await client.actionFAsync(new Msg
                 {
-                    await sendCall.RequestStream.WriteAsync(new Msg
-                    {
-                        Id = _syncedDirs.Find(dir => message.AbsPath.Contains(dir.Path)).Id,
-                        File = ByteString.CopyFrom(message.File.Skip(i * Bufsize).Take(Bufsize).ToArray()),
-                        NewPath = message.NewPath,
-                        Path = message.Path,
-                        Type = (int)message.Type
-                    });
-                }
-
-                await sendCall.RequestStream.CompleteAsync();
-                var response = await sendCall;
-
+                    Id = _syncedDirs.Find(dir => message.AbsPath.Contains(dir.Path)).Id,
+                    File = ByteString.CopyFrom(message.File),
+                    NewPath = message.NewPath,
+                    Path = message.Path,
+                    Type = (int)message.Type
+                });
                 Console.WriteLine($"Ответ сервера: {response.Code}");
             }
             catch (Exception ex)
@@ -78,7 +67,6 @@ namespace Client
             }
             
             _syncedDirs ??= new List<SyncDirInfo>();
-            _fsWorkers = new List<FileSystemWorker>();
 
             //для каждой сихронизируемой папки добавляем обработчик, следящий за изменением файл.системы
             bool nativeDirExists = false;
@@ -88,10 +76,8 @@ namespace Client
                 {
                     nativeDirExists = true;
                 }
-
-                var fsWorker = new FileSystemWorker(dir.Path);
-                fsWorker.Notify += SendMessage;
-                _fsWorkers.Add(fsWorker);
+                dir.FsWorker = new FileSystemWorker(dir.Path);
+                dir.MsgHandler = new MessageHandler(new FilesSystemCreator(dir.Path));
             }
 
             //создаем папку для синхронизации у клиента
@@ -108,32 +94,28 @@ namespace Client
                 Directory.CreateDirectory(userDiskPath);
 
                 //если не удалось подсоединиться к диспетчеру, то через некоторое время бросится Exception
-                using var sendCall = client.actionF();
-
-                await sendCall.RequestStream.WriteAsync(new Msg { Type = (int)MsgType.CreateDisk });
-                await sendCall.RequestStream.CompleteAsync();
-
-                var response = await sendCall;
-                //TODO: обработка разных кодов
-                if (response.Code == 1)
+                Resp? response;
+                try
                 {
-                    _syncedDirs.Add(new SyncDirInfo { Id = response.DiskId, 
-                        Path = userDiskPath, CreatedByClient = true});
-                    File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
-                    var fsWorker = new FileSystemWorker(userDiskPath);
-                    fsWorker.Notify += SendMessage;
-                    _fsWorkers.Add(fsWorker);
+                    response = await client.actionFAsync(new Msg { Type = (int)MsgType.CreateDisk });
                 }
-
-                Console.WriteLine($"Ответ сервера: {response.Code} {response.DiskId}");
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Не удалось подключить к сервису синхронизации\n" + ex.Message);
+                    return;
+                }
+                
+                if (response.Code == 1) // синхронизируемая папка создана на сервера
+                {
+                    _syncedDirs.Add(new SyncDirInfo(response.DiskId, userDiskPath, true));
+                    File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
+                }
+                Console.WriteLine($"Ответ сервера: {response.Code}, {response.DiskId}");
             }
 
             //создаем поток, в котором будет происходить синхронизация
-            /*var syncThread = new Thread(new ClientSyncSocket(
-                int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run);
-            syncThread.Start();*/
             Task.Factory.StartNew(() => 
-                new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(), 
+                new ClientSyncSocket(int.Parse(ConfigurationManager.AppSettings.Get("Port"))).Run(_syncedDirs), 
                 TaskCreationOptions.LongRunning);
  
 
@@ -162,11 +144,14 @@ namespace Client
                         if (IsValidFilePath(path) && _syncedDirs.Find(dir => path.Contains(dir.Path)) == null)
                         {
                             Directory.CreateDirectory(path);
-                            _syncedDirs.Add(new SyncDirInfo { Id = id, Path = path, CreatedByClient = false });
+                            _syncedDirs.Add(new SyncDirInfo(id, path, false));
                             File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
                             Console.WriteLine("Синхронизируемая папка успешно добавлена!");
                         }
-                        else Console.WriteLine("Ошибка. Некорректный путь");
+                        else
+                        {
+                            Console.WriteLine("Ошибка. Некорректный путь");
+                        }
                         
                         //TODO: вызов удаленной процедуры по клонированию папки на клиент
                         

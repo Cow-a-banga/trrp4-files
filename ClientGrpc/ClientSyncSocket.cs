@@ -18,7 +18,7 @@ public class ClientSyncSocket
         serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
     }
 
-    public void Run()
+    public void Run(List<SyncDirInfo> dirInfo)
     {
         try
         {

@@ -55,7 +55,7 @@ namespace FileServer
                     Id = serverMessage.Id,
                     NewPath = serverMessage.NewPath,
                     Ip = ipWithoutPort,
-                    File = Encoding.UTF8.GetBytes(serverMessage.File),
+                    File = Convert.FromBase64String(serverMessage.File)
                 };
                 
                 var dirPath =  message.Type == MsgType.CreateDisk ? _foldersPath : Path.Combine(_foldersPath, message.Id);

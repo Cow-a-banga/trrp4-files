@@ -5,7 +5,7 @@ option csharp_namespace = "Client";
 package example;
 
 service RemoteFolderManager {
-  rpc actionF (stream Msg) returns (Resp) {}
+  rpc actionF (Msg) returns (Resp);
 }
 
 message Msg {
