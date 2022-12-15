@@ -16,6 +16,11 @@ namespace FileSystemWork
     {
         public byte[] File { get; set; }
 
+        public Message()
+        {
+            
+        }
+
         public Message(string path, string absPath, MsgType type)
         {
             Id = "";
