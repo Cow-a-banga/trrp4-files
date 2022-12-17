@@ -50,15 +50,14 @@ public class ClientSyncSocket
                         Console.WriteLine($"Id ({dirId}) collected");
 
                         Console.Write("Receiving a file. ");
-                        do
+                        using (var stream = new NetworkStream(handler))
                         {
-                            bytesReadCount = handler.Receive(readBytes);
-                            output.Write(readBytes, 0, bytesReadCount);
-                        } while (bytesReadCount == handler.ReceiveBufferSize);
-
-
-                        handler.Send(Encoding.UTF8.GetBytes("File collected"));
-                        Console.WriteLine("[Success]");
+                            do
+                            {
+                                bytesReadCount = stream.Read(readBytes);
+                                output.Write(readBytes, 0, bytesReadCount);
+                            } while (bytesReadCount > 0);
+                        }
                     }
 
                     var changedDir = dirInfo.Find(dir => dir.Id == dirId);
@@ -72,8 +71,20 @@ public class ClientSyncSocket
                 else
                 {
                     byte[] readBytes = new byte[handler.ReceiveBufferSize];
-                    int bytesReadCount = handler.Receive(readBytes);
-                    string messageStr = Encoding.UTF8.GetString(readBytes.Take(bytesReadCount).ToArray());
+                    var allBytes = new List<byte>();
+                    int bytesReadCount;
+                    
+                    using (var stream = new NetworkStream(handler))
+                    {
+                        do
+                        {
+                            bytesReadCount = stream.Read(readBytes);
+                            allBytes.AddRange(readBytes.Take(bytesReadCount));
+                            var testStr = Encoding.UTF8.GetString(readBytes);
+                        } while (bytesReadCount > 0);
+                    }
+
+                    string messageStr = Encoding.UTF8.GetString(allBytes.ToArray());
                     Message msg = JsonConvert.DeserializeObject<Message>(messageStr);
                     var changedDir = dirInfo.Find(dir => dir.Id == msg.Id);
                     changedDir.FsWorker.Dispose();
