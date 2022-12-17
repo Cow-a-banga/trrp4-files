@@ -17,7 +17,7 @@ public class SyncDirInfo: IDisposable
         set
         {
             _fsWorker = value;
-            FsWorker.Notify += Program.SendMessage;
+            FsWorker.Notify += Program.SendFileSystemChangeMessage;
         }
     }
     
@@ -32,13 +32,13 @@ public class SyncDirInfo: IDisposable
         Path = path;
         CreatedByClient = createdByClient;
         FsWorker = new FileSystemWorker(Path);
-        FsWorker.Notify += Program.SendMessage;
+        FsWorker.Notify += Program.SendFileSystemChangeMessage;
         MsgHandler = new MessageHandler(new FilesSystemCreator(Path));
     }
 
     public void Dispose()
     {
-        FsWorker.Notify -= Program.SendMessage;
+        FsWorker.Notify -= Program.SendFileSystemChangeMessage;
         FsWorker.Dispose();
     }
 }

@@ -98,9 +98,9 @@ namespace FileServer
                         byte[] data = new byte[1024];
                         var length = client.Socket.Receive(data);
                         var answer = Encoding.UTF8.GetString(data);
-                        client.Socket.SendFile(zipPath);
-                        length = client.Socket.Receive(data);
-                        answer = Encoding.UTF8.GetString(data);
+                        using FileStream fs = new FileStream(zipPath, FileMode.Open);
+                        using NetworkStream ns = new NetworkStream(client.Socket);
+                        fs.CopyTo(ns);
                     }
                     catch (Exception e)
                     {
@@ -132,7 +132,10 @@ namespace FileServer
                         var length = Encoding.UTF8.GetBytes($"{body.Length}");
                         client.Socket.Connect(client.IpPoint);
                         client.Socket.Send(new byte[] { 1 });
-                        client.Socket.Send(body);
+                        using (NetworkStream networkStream = new NetworkStream(client.Socket))
+                        {
+                            networkStream.Write(body, 0, body.Length);
+                        }
                     }
                     catch (Exception e)
                     {

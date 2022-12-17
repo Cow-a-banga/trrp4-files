@@ -10,6 +10,7 @@ namespace FileSystemWork
         public event FileSystemWorkerHandler? Notify;
         private readonly string _path;
         private readonly FileSystemWatcher _watcher;
+        private DateTime _lastTimeFileWatcherEventRaised;
 
         public FileSystemWorker(string path)
         {
@@ -28,8 +29,6 @@ namespace FileSystemWork
             _watcher.Deleted += OnDeleted;
             _watcher.Renamed += OnRenamed;
             _watcher.Error += OnError;
-            //_watcher.NotifyFilter = NotifyFilters.Attributes;
-
             _watcher.IncludeSubdirectories = true;
             _watcher.EnableRaisingEvents = true;
         }
@@ -43,10 +42,16 @@ namespace FileSystemWork
                 return;
             }
             
+            if( DateTime.Now.Subtract (_lastTimeFileWatcherEventRaised).TotalMilliseconds < 500 )
+            {
+                return;
+            }
+            _lastTimeFileWatcherEventRaised = DateTime.Now;
+            
             byte[] buffer;
-            Thread.Sleep(300);
             try
             {
+                Thread.Sleep(300);
                 using (FileStream fs = File.OpenRead(e.FullPath))
                 {
                     buffer = new byte[fs.Length];
@@ -66,10 +71,16 @@ namespace FileSystemWork
         {
             if (!Directory.Exists(e.FullPath))
             {
+                if( DateTime.Now.Subtract (_lastTimeFileWatcherEventRaised).TotalMilliseconds < 500 )
+                {
+                    return;
+                }
+                _lastTimeFileWatcherEventRaised = DateTime.Now;
+                
                 byte[] buffer;
-                Thread.Sleep(300);
                 try
                 {
+                    Thread.Sleep(300);
                     using (FileStream fs = File.OpenRead(e.FullPath))
                     {
                         buffer = new byte[fs.Length];
@@ -90,12 +101,22 @@ namespace FileSystemWork
 
         private void OnDeleted(object sender, FileSystemEventArgs e)
         {
+            if( DateTime.Now.Subtract (_lastTimeFileWatcherEventRaised).TotalMilliseconds < 500 )
+            {
+                return;
+            }
+            _lastTimeFileWatcherEventRaised = DateTime.Now;
             Notify?.Invoke(new Message(GetRelativePath(e.FullPath), e.FullPath, MsgType.Delete));
             Console.WriteLine($"Удалено: {e.FullPath}\n");
         }
 
         private void OnRenamed(object sender, RenamedEventArgs e)
         {
+            if( DateTime.Now.Subtract (_lastTimeFileWatcherEventRaised).TotalMilliseconds < 500 )
+            {
+                return;
+            }
+            _lastTimeFileWatcherEventRaised = DateTime.Now;
             Notify?.Invoke(Directory.Exists(e.FullPath)
                 ? new Message(GetRelativePath(e.OldFullPath), e.FullPath, 
                     GetRelativePath(e.FullPath),  MsgType.RenameDirectory)
