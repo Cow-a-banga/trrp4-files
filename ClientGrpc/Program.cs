@@ -1,5 +1,7 @@
 ﻿using System.Configuration;
+using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using FileSystemWork;
@@ -29,11 +31,10 @@ namespace Client
                     Path = message.Path,
                     Type = (int)message.Type
                 });
-                Console.WriteLine($"Ответ сервера: {response.Code}");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine("Ошибка. " + ex.Message);
+                Console.WriteLine("Ошибка. Сервер распределения операций недоступен");
             }
         }
 
@@ -43,54 +44,54 @@ namespace Client
             try
             {
                 response = await _client.actionFAsync(msg);
-                Console.WriteLine($"Ответ сервера: {response.Code}");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine("Неизвестная ошибка\n" + ex.Message);
+                Console.WriteLine("Ошибка. Сервер распределения операций недоступен");
                 return null;
             }
-
             return response;
         }
 
         // проверка доступа к интернету
         private static async void PingDispatcher()
         {
-            var ping = new Ping();
-            bool replyIpStatus = true, prevReplyIpStatus;
-            while (true)
+            using (TcpClient tcpClient = new TcpClient())
             {
-                prevReplyIpStatus = replyIpStatus;
-                try
+                bool replyIpStatus = true, prevReplyIpStatus;
+                while (true)
                 {
-                    ping.Send("google.com");
-                    replyIpStatus = true;
-                }
-                catch (Exception)
-                {
-                    replyIpStatus = false;
-                }
-
-                if (!prevReplyIpStatus && replyIpStatus) // соединение восстановлено, синхронизируемся
-                {
-                    Console.WriteLine("Восстановлено соединение с диспетчером. Происходит синхронизация.. " +
-                                      "Не отключайте Ваше устройство");
-                    foreach (var dir in _syncedDirs)
+                    prevReplyIpStatus = replyIpStatus;
+                    try
                     {
-                        await SendMessage(new Msg
-                        {
-                            Id = dir.Id,
-                            Type = (int)MsgType.LoadDisk
-                        });
+                        tcpClient.Connect("25.14.120.28", 5000);
+                        replyIpStatus = true;
                     }
-                }
+                    catch (Exception)
+                    {
+                        replyIpStatus = false;
+                    }
 
-                Thread.Sleep(35000);
+                    if (!prevReplyIpStatus && replyIpStatus) // соединение восстановлено, синхронизируемся
+                    {
+                        Console.WriteLine(
+                            "Восстановлено соединение с диспетчером. Происходит попытка синхронизации... ");
+                        foreach (var dir in _syncedDirs)
+                        {
+                            await SendMessage(new Msg
+                            {
+                                Id = dir.Id,
+                                Type = (int)MsgType.LoadDisk
+                            });
+                        }
+                    }
+
+                    Thread.Sleep(35000);
+                }
             }
         }
         
-        private static void ReadSharedDirsFromFile()
+        public static void ReadSharedDirsFromFile()
         {
             using FileStream fs = new FileStream("index.json", FileMode.OpenOrCreate);
             using StreamReader sr = new StreamReader(fs);
@@ -98,11 +99,13 @@ namespace Client
             {
                 _syncedDirs = JsonConvert.DeserializeObject<List<SyncDirInfo>>(sr.ReadToEnd());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine("Не удалось загрузить информацию о синхронизируемых папках\n" + ex.Message);
-                _syncedDirs = new List<SyncDirInfo>();
+                // ignored
             }
+
+            if (_syncedDirs == null)
+                _syncedDirs = new List<SyncDirInfo>();
         }
 
         private static void SyncSharedDirs()
@@ -203,8 +206,7 @@ namespace Client
                               "0 - Завершение работы\n" +
                               "1 - Посмотреть доступные папки\n" +
                               "2 - Добавить отслеживаемую папку\n" +
-                              "3 - Удалить отслеживаемую папку\n" +
-                              "Выбор: ");
+                              "3 - Удалить отслеживаемую папку\n");
                 string userChoice = Console.ReadLine();
                 switch (userChoice)
                 {
@@ -219,38 +221,38 @@ namespace Client
                     case "2":
                         Console.Write("Введите ID папки другого клиента: ");
                         string id = Console.ReadLine();
-                        Console.Write("Укажите путь, где будут хранится синхронизируемая папка: ");
-                        string path = Path.Join(Console.ReadLine(), id);
-                        if (IsValidFilePath(path) && _syncedDirs.Find(dir => path.Contains(dir.Path)) == null)
+                        var dispatcherResponse = await SendMessage(new Msg
                         {
-                            Directory.CreateDirectory(path);
-                            _syncedDirs.Add(new SyncDirInfo(id, path, false));
-                            var dispatcherResponse = await SendMessage(new Msg
+                            Id = id,
+                            Type = (int)MsgType.GetSharedDirById
+                        });
+                        if (dispatcherResponse is { Code: 1 })
+                        {
+                            File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
+                            Console.Write("Введить путь, где будет хранится синхронизируемая папка: ");
+                            string path = Path.Join(Console.ReadLine(), id);
+                            try
                             {
-                                Id = id,
-                                Type = (int)MsgType.LoadDisk
-                            });
+                                Directory.CreateDirectory(path);
+                            }
+                            catch (Exception)
+                            {
+                                Console.WriteLine("Не удалось создать папку по указанному пути");
+                                break;
+                            }
 
-                            if (dispatcherResponse is { Code: 1 })
-                            {
-                                File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
-                                Console.WriteLine("Синхронизируемая папка успешно добавлена!");
-                            }
-                            else
-                            {
-                                _syncedDirs.Last().Dispose();
-                                _syncedDirs.Remove(_syncedDirs.Last());
-                                Directory.Delete(_syncedDirs.Last().Path, true);
-                                Console.WriteLine("Не удалось создать синхронизируемую папку");
-                            }
+                            var newDirInfo = new SyncDirInfo(id, path, false);
+                            newDirInfo.Dispose();
+                            _syncedDirs.Add(newDirInfo);
+                            File.WriteAllText("index.json", JsonConvert.SerializeObject(_syncedDirs));
+                            Console.WriteLine("Папка успешно добавлена в список синхронизируемых");
+                            Console.WriteLine("Она будет синхронизирована при следущем запуске!");
                         }
                         else
                         {
-                            Console.WriteLine("Ошибка. Некорректный путь");
+                            Console.WriteLine("Не удалось создать синхронизируемую папку с таким ID");
                         }
-
                         break;
-
                     case "3":
                         SyncSharedDirs();
                         for (int i = 0; i < _syncedDirs.Count; i++)

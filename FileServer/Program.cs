@@ -149,7 +149,6 @@ namespace FileServer
                             client.Socket.Close();
                             client.RecreateSocket();
                         }
-                            
                     }
                     return;
                 }

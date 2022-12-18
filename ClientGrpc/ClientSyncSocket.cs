@@ -4,7 +4,6 @@ using System.Net.Sockets;
 using System.Text;
 using FileSystemWork;
 using Newtonsoft.Json;
-using JsonConverter = System.Text.Json.Serialization.JsonConverter;
 
 namespace Client;
 
@@ -29,27 +28,18 @@ public class ClientSyncSocket
             try
             {
                 var handler = serverSocket.Accept();
-                Console.WriteLine("Server start synchronization. ");
-
                 string dirId;
-
-                Console.Write("Receiving a type. ");
                 byte[] type = new byte[1];
                 handler.Receive(type);
-                Console.WriteLine("[Success]");
                 if (type[0] == 0)
                 {
                     using (var output = File.Create("result.zip"))
                     {
-                        Console.Write("Receiving a file id. ");
                         byte[] readBytes = new byte[handler.ReceiveBufferSize];
                         int bytesReadCount = handler.Receive(readBytes);
                         dirId = Encoding.UTF8.GetString(readBytes.Take(bytesReadCount).ToArray());
                         handler.Send(Encoding.UTF8.GetBytes($"Id ({dirId}) collected"));
-                        Console.WriteLine("[Success]");
-                        Console.WriteLine($"Id ({dirId}) collected");
-
-                        Console.Write("Receiving a file. ");
+                        
                         using (var stream = new NetworkStream(handler))
                         {
                             do
@@ -59,28 +49,33 @@ public class ClientSyncSocket
                             } while (bytesReadCount > 0);
                         }
                     }
-
+                    
                     var changedDir = dirInfo.Find(dir => dir.Id == dirId);
                     changedDir.FsWorker.Dispose();
-                    Directory.Delete(changedDir.Path, true);
-                    Directory.CreateDirectory(changedDir.Path);
-                    ZipFile.ExtractToDirectory("result.zip", changedDir.Path);
-                    File.Delete("result.zip");
-                    changedDir.FsWorker = new FileSystemWorker(changedDir.Path);
+                    try
+                    {
+                        Directory.Delete(changedDir.Path, true);
+                        Directory.CreateDirectory(changedDir.Path);
+                        ZipFile.ExtractToDirectory("result.zip", changedDir.Path);
+                        File.Delete("result.zip");
+                    }
+                    finally
+                    {
+                        changedDir.FsWorker = new FileSystemWorker(changedDir.Path);
+                    }
                 }
                 else
                 {
                     byte[] readBytes = new byte[handler.ReceiveBufferSize];
                     var allBytes = new List<byte>();
-                    int bytesReadCount;
-                    
+
                     using (var stream = new NetworkStream(handler))
                     {
+                        int bytesReadCount;
                         do
                         {
                             bytesReadCount = stream.Read(readBytes);
                             allBytes.AddRange(readBytes.Take(bytesReadCount));
-                            var testStr = Encoding.UTF8.GetString(readBytes);
                         } while (bytesReadCount > 0);
                     }
 
@@ -97,7 +92,7 @@ public class ClientSyncSocket
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Ошибка " + ex);
+                Console.WriteLine("Ошибка при синхронизации");
             }
         }
     }

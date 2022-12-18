@@ -101,10 +101,6 @@ namespace FileSystemWork
 
         private void OnDeleted(object sender, FileSystemEventArgs e)
         {
-            if( DateTime.Now.Subtract (_lastTimeFileWatcherEventRaised).TotalMilliseconds < 500 )
-            {
-                return;
-            }
             _lastTimeFileWatcherEventRaised = DateTime.Now;
             Notify?.Invoke(new Message(GetRelativePath(e.FullPath), e.FullPath, MsgType.Delete));
             Console.WriteLine($"Удалено: {e.FullPath}\n");
@@ -136,8 +132,6 @@ namespace FileSystemWork
             if (ex != null)
             {
                 Console.WriteLine($"Message: {ex.Message}");
-                Console.WriteLine("Stacktrace:");
-                Console.WriteLine(ex.StackTrace);
                 Console.WriteLine();
                 PrintException(ex.InnerException);
             }

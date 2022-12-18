@@ -9,6 +9,7 @@
         ChangeFile,
         RenameFile,
         Delete,
-        LoadDisk
+        LoadDisk, 
+        GetSharedDirById
     }
 }
