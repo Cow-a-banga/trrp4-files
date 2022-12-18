@@ -56,41 +56,41 @@ namespace Client
         // проверка доступа к интернету
         private static async void PingDispatcher()
         {
-            using (TcpClient tcpClient = new TcpClient())
+            bool replyIpStatus = true, prevReplyIpStatus;
+            while (true)
             {
-                bool replyIpStatus = true, prevReplyIpStatus;
-                while (true)
+                TcpClient tcpClient = new TcpClient();
+                prevReplyIpStatus = replyIpStatus;
+                try
                 {
-                    prevReplyIpStatus = replyIpStatus;
-                    try
-                    {
-                        tcpClient.Connect("25.14.120.28", 5000);
-                        replyIpStatus = true;
-                    }
-                    catch (Exception)
-                    {
-                        replyIpStatus = false;
-                    }
-
-                    if (!prevReplyIpStatus && replyIpStatus) // соединение восстановлено, синхронизируемся
-                    {
-                        Console.WriteLine(
-                            "Восстановлено соединение с диспетчером. Происходит попытка синхронизации... ");
-                        foreach (var dir in _syncedDirs)
-                        {
-                            await SendMessage(new Msg
-                            {
-                                Id = dir.Id,
-                                Type = (int)MsgType.LoadDisk
-                            });
-                        }
-                    }
-
-                    Thread.Sleep(35000);
+                    tcpClient.Connect("25.14.120.28", 5000);
+                    replyIpStatus = true;
+                    tcpClient.Close();
                 }
+                catch (Exception)
+                {
+                    replyIpStatus = false;
+                }
+
+                if (!prevReplyIpStatus && replyIpStatus) // соединение восстановлено, синхронизируемся
+                {
+                    Console.WriteLine(
+                        "Восстановлено соединение с диспетчером. Происходит попытка синхронизации...");
+                    Thread.Sleep(500);
+                    foreach (var dir in _syncedDirs)
+                    {
+                        await SendMessage(new Msg
+                        {
+                            Id = dir.Id,
+                            Type = (int)MsgType.LoadDisk
+                        });
+                    }
+                }
+
+                Thread.Sleep(15000);
             }
         }
-        
+
         public static void ReadSharedDirsFromFile()
         {
             using FileStream fs = new FileStream("index.json", FileMode.OpenOrCreate);
@@ -170,7 +170,7 @@ namespace Client
                 });
 
                 Console.WriteLine(dispatcherResponse?.Code == 1
-                    ? $"Папка {dir.Path} успешно синхронизована"
+                    ? $"Папка {dir.Path} синхронизируется.."
                     : $"Папка {dir.Path} не синхронизована. Ваши текущие изменения не будут сохранены!");
             }
 
@@ -221,6 +221,11 @@ namespace Client
                     case "2":
                         Console.Write("Введите ID папки другого клиента: ");
                         string id = Console.ReadLine();
+                        if (_syncedDirs.Exists(dir => dir.Id == id))
+                        {
+                            Console.WriteLine("Ошибка. Эта папка уже отслеживается!");
+                            break;
+                        }
                         var dispatcherResponse = await SendMessage(new Msg
                         {
                             Id = id,

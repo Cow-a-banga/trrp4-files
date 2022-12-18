@@ -39,7 +39,7 @@ public class ClientSyncSocket
                         int bytesReadCount = handler.Receive(readBytes);
                         dirId = Encoding.UTF8.GetString(readBytes.Take(bytesReadCount).ToArray());
                         handler.Send(Encoding.UTF8.GetBytes($"Id ({dirId}) collected"));
-                        
+
                         using (var stream = new NetworkStream(handler))
                         {
                             do
@@ -49,7 +49,7 @@ public class ClientSyncSocket
                             } while (bytesReadCount > 0);
                         }
                     }
-                    
+
                     var changedDir = dirInfo.Find(dir => dir.Id == dirId);
                     changedDir.FsWorker.Dispose();
                     try
@@ -86,7 +86,7 @@ public class ClientSyncSocket
                     changedDir.MsgHandler.Handle(msg);
                     changedDir.FsWorker = new FileSystemWorker(changedDir.Path);
                 }
-                
+
                 handler.Shutdown(SocketShutdown.Both);
                 handler.Close();
             }
