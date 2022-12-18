@@ -20,6 +20,7 @@ namespace FileServer
         private static string _foldersPath;
         private static Dictionary<string, List<ClientInfo>> _clients;
         private static int _syncPort;
+        private static string _clientsFileName;
         
         public static void Main(string[] args)
         {
@@ -28,10 +29,40 @@ namespace FileServer
             var username = ConfigurationManager.AppSettings.Get("Username");
             var password = ConfigurationManager.AppSettings.Get("Password");
             _foldersPath = ConfigurationManager.AppSettings.Get("FoldersPath");
-            _clients = new Dictionary<string, List<ClientInfo>>();
+            _clientsFileName = ConfigurationManager.AppSettings.Get("ClientsFileName");
             _syncPort = int.Parse(ConfigurationManager.AppSettings.Get("SocketSyncPort"));
             var port = int.Parse(ConfigurationManager.AppSettings.Get("SocketPingPort"));
             Task.Factory.StartNew(() => PingCheck(port), TaskCreationOptions.LongRunning);
+
+            if (!File.Exists(_clientsFileName))
+            {
+                ResetClients();
+            }
+            else
+            {
+                try
+                {
+                    var json = "";
+                    using (var reader = new StreamReader(_clientsFileName))
+                    {
+                        json = reader.ReadToEnd();
+                    }
+
+                    _clients = JsonConvert.DeserializeObject<Dictionary<string, List<ClientInfo>>>(json);
+                    foreach (var (key, clientInfos) in _clients)
+                    {
+                        foreach (var clientInfo in clientInfos)
+                        {
+                            clientInfo.IpPoint = new IPEndPoint(IPAddress.Parse(clientInfo.ClientAddress), _syncPort);
+                            clientInfo.RecreateSocket();
+                        }
+                    }
+                }
+                catch
+                {
+                    ResetClients();
+                }
+            }
 
             if (!Directory.Exists(_foldersPath))
             {
@@ -73,9 +104,12 @@ namespace FileServer
                     {
                         Console.WriteLine(e.Message);
                     }
-                    
-                    if(client != null)
+
+                    if (client != null)
+                    {
                         _clients[message.Id].Add(client);
+                        SerializeClients(_clients);
+                    }
                 }
                     
 
@@ -141,6 +175,7 @@ namespace FileServer
                     {
                         client.Dispose();
                         _clients[message.Id].Remove(client);
+                        SerializeClients(_clients);
                     }
                     finally
                     {
@@ -193,6 +228,21 @@ namespace FileServer
             }
              
             Console.WriteLine("Server exit");
+        }
+
+        private static void ResetClients()
+        {
+            _clients = new Dictionary<string, List<ClientInfo>>();
+            SerializeClients(_clients);
+        }
+        
+        private static void SerializeClients(Dictionary<string, List<ClientInfo>> clients)
+        {
+            var json = JsonConvert.SerializeObject(clients);
+            using (var writer = new StreamWriter(_clientsFileName))
+            {
+                writer.Write(json);
+            }
         }
     }
 }
